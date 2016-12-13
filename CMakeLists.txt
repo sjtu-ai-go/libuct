@@ -45,7 +45,7 @@ endif()
 # uct
 ##################################
 include_directories(src/)
-add_library(uct STATIC src/uct/uct.cpp src/uct/detail/tree.hpp src/uct/uct.hpp)
+add_library(uct STATIC src/uct/uct.cpp src/uct/detail/tree.hpp src/uct/uct.hpp src/uct/detail/uct_algo.hpp)
 target_link_libraries(uct ${libgo_LIBS} ${libgoboard_LIBS} ${libfastrollout_LIBS})
 set(libuct_INCLUDE_DIR ${libgoboard_INCLUDE_DIR} ${libgo-common_INCLUDE_DIR} ${libfastrollout_INCLUDE_DIR} ${libuct_SOURCE_DIR}/src PARENT_SCOPE)
 

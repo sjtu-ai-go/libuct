@@ -23,7 +23,12 @@ struct TreeNodeBlock1
 
 struct TreePolicy1: public uct::TreePolicy<TreeNodeBlock1, 32>
 {
-    virtual TreeNodeType *tree_policy(TreeNodeType *root, TreeBlockType &tree) override
+    using BaseT = uct::TreePolicy<TreeNodeBlock1, 32>;
+    using TreeNodeType = typename BaseT::TreeNodeType;
+    using TreeState = typename BaseT::TreeState;
+    using TreePolicyResult = typename BaseT::TreePolicyResult;
+    static const std::size_t CH_BUF_SIZE = BaseT::CH_BUF_SIZE;
+    virtual TreePolicyResult tree_policy(TreeNodeType *root) override
     {
         TreeNodeType *cur_node = root;
         auto logger = getGlobalLogger();
@@ -32,7 +37,7 @@ struct TreePolicy1: public uct::TreePolicy<TreeNodeBlock1, 32>
         {
             logger->trace("[tid={}] current node={}", std::this_thread::get_id(), (void*)cur_node);
             if (!cur_node)
-                return nullptr;
+                return std::make_pair(nullptr, TreeState {});
             TreeNodeType *expanded_ch = nullptr;
             if (!cur_node->block.default_policy_done.load())
             {
@@ -50,7 +55,7 @@ struct TreePolicy1: public uct::TreePolicy<TreeNodeBlock1, 32>
             }
             if (expanded_ch)
             {
-                return expanded_ch;
+                return std::make_pair(expanded_ch, TreeState {});
             } else
             {
                 cur_node = &*(cur_node->ch.begin() + (std::rand() % cur_node->ch.size()));
@@ -58,8 +63,9 @@ struct TreePolicy1: public uct::TreePolicy<TreeNodeBlock1, 32>
         }
     }
 
-    virtual void default_policy(TreeNodeType *new_expanded_leaf, TreeBlockType &tree) override
+    virtual void default_policy(const TreePolicyResult &result) override
     {
+        TreeNodeType *new_expanded_leaf = result.first;
         //std::this_thread::sleep_for(std::chrono::milliseconds(1));
         if (!new_expanded_leaf->block.default_policy_done.exchange(true))
         {
@@ -71,9 +77,14 @@ struct TreePolicy1: public uct::TreePolicy<TreeNodeBlock1, 32>
         }
     }
 
-    virtual std::size_t getFinalResultIndex(TreeNodeType *root, TreeBlockType &) override
+    virtual std::size_t getFinalResultIndex(TreeNodeType *root) override
     {
         return 0;
+    }
+
+    virtual TreeNodeType getRoot() override
+    {
+        return TreeNodeType {nullptr};
     }
 };
 
@@ -83,4 +94,13 @@ TEST(TreeTest, TestTree1)
     logger->set_level(spdlog::level::debug);
     uct::Tree<TreePolicy1> tree;
     tree.run(4, std::chrono::seconds(2));
+}
+
+TEST(UCTTest, TestUCT1)
+{
+    auto logger = getGlobalLogger();
+    logger->set_level(spdlog::level::debug);
+    board::Board<9, 9> b;
+    uct::Tree<uct::detail::UCTTreePolicy<9, 9>> tree(b, board::Player::B);
+    //tree.run(4, std::chrono::seconds(2));
 }

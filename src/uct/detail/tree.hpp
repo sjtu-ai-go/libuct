@@ -52,20 +52,25 @@ namespace uct
     template<typename PolicyT>
     class Tree;
 
-    template<typename AdditionalBlockT, std::size_t ch_buf_size, typename TreeBlockT = EmptyTreeBlock>
+    template<typename AdditionalBlockT, std::size_t ch_buf_size, typename TreeStateT = EmptyTreeBlock>
     struct TreePolicy
     {
         using TreeType = Tree<TreePolicy>;
         using BlockType = AdditionalBlockT;
-        using TreeBlockType = TreeBlockT;
         using TreeNodeType = detail::TreeNodeWithBlock<AdditionalBlockT, ch_buf_size>;
+        using TreeState = TreeStateT;
+        // New expanded leaf + extra information
+        using TreePolicyResult = std::pair<TreeNodeType*, TreeState>;
         // From root, return expanded new leaf on success(then default_policy will be called),
         // otherwise return nullptr(tree_policy will be called again)
-        virtual TreeNodeType *tree_policy(TreeNodeType *root, TreeBlockType& tree) = 0;
+        virtual TreePolicyResult tree_policy(TreeNodeType *root) = 0;
         // From newly expanded leaf, compute value and propagate back to root
-        virtual void default_policy(TreeNodeType *new_expanded_leaf, TreeBlockType &tree) = 0;
+        virtual void default_policy(const TreePolicyResult &) = 0;
         // after running, use getFinalResultIndex to suggest which child of root will you choose
-        virtual std::size_t getFinalResultIndex(TreeNodeType *root, TreeBlockType &tree) = 0;
+        virtual std::size_t getFinalResultIndex(TreeNodeType *root) = 0;
+
+        virtual TreeNodeType getRoot() = 0;
+
         virtual ~TreePolicy() {}
 
         static const std::size_t CH_BUF_SIZE = ch_buf_size;
@@ -79,20 +84,19 @@ namespace uct
         static const std::size_t CH_BUF_SIZE = PolicyT::CH_BUF_SIZE;
         using PolicyType = PolicyT;
         using TreeNodeType = typename PolicyType::TreeNodeType;
-        using TreeBlockType = typename PolicyT::TreeBlockType;
-        static_assert(std::is_base_of<TreePolicy<BlockType, CH_BUF_SIZE>, PolicyT>::value, "PolicyType must derive from uct::TreePolicy");
+        using TreeState = typename PolicyType::TreeState;
     protected:
+        PolicyType policy;
         std::unique_ptr<TreeNodeType> root_;
         std::shared_ptr<spdlog::logger> plogger_;
-        TreeBlockType block;
     public:
 
         template<typename ... Us>
         Tree(Us&& ...us):
-                root_(new TreeNodeType(std::forward<Us>(us)...)), plogger_(getGlobalLogger())
+                policy(std::forward<Us>(us)...),
+                root_(new TreeNodeType(policy.getRoot())), plogger_(getGlobalLogger())
         {
-            PolicyType policy;
-            policy.default_policy(root_.get(), block);
+            policy.default_policy(std::make_pair(root_.get(), TreeState {}));
             plogger_->trace("Tree established with root at {} ", (void*)this);
         }
 
@@ -100,8 +104,7 @@ namespace uct
 
         std::size_t getResultIndex()
         {
-            PolicyType policy;
-            return policy.getResultIndex(root_.get(), block);
+            return policy.getResultIndex(root_.get());
         }
 
     protected:
@@ -118,7 +121,6 @@ namespace uct
                         std::this_thread::get_id(), TIME_CHECK_CNT_INTEVAL, (void*)root_node);
 
         std::size_t cnt_since_last_check = 0;
-        PolicyType policy;
 
         for (;;)
         {
@@ -131,10 +133,10 @@ namespace uct
                 cnt_since_last_check = 0;
             }
 
-            TreeNodeType *new_expanded_leaf = policy.tree_policy(root_.get(), block);
-            if (new_expanded_leaf)
+            std::pair<TreeNodeType *, TreeState> tree_policy_result = policy.tree_policy(root_.get());
+            if (tree_policy_result.first)
             {
-                policy.default_policy(new_expanded_leaf, block);
+                policy.default_policy(tree_policy_result);
             }
         }
         auto cur_time = std::chrono::steady_clock::now();
