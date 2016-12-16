@@ -15,6 +15,7 @@
 #include <atomic>
 #include <numeric>
 #include <algorithm>
+#include <sstream>
 
 namespace uct
 {
@@ -104,10 +105,10 @@ namespace uct
                        node.block.getQ() / node.block.visit_cnt.load() +
                        0.707 * std::sqrt(
                                node.parent ?
-                               std::log(node.parent->block.visit_cnt.load()) / node.block.visit_cnt.load() :
-                               1.0
+                               2 * std::log(node.parent->block.visit_cnt.load()) / node.block.visit_cnt.load() :
+                               2.0
                        ) :
-                       -10.0;
+                       -1.0;
             }
 
             virtual TreePolicyResult tree_policy(TreeNodeType *root) override
@@ -169,20 +170,10 @@ namespace uct
                             TreeNodeType & child = cur_node->ch[i];
                             uctValue.push_back(uctVal(child));
                         }
-                        double min_element = *std::min_element(uctValue.begin(), uctValue.end());
-                        std::transform(uctValue.begin(), uctValue.end(), uctValue.begin(),
-                                       [min_element](double uctVal) {
-                                           return uctVal - min_element + 0.1;
-                                       }
-                        );
-                        std::partial_sum(uctValue.begin(), uctValue.end(), uctValue.begin());
-                        std::uniform_real_distribution<> dis(0.0f, *uctValue.rbegin());
-                        double roll = dis(gen);
-                        for (std::size_t i=0; i<uctValue.size(); ++i)
-                            if (uctValue[i] >= roll) {
-                                selected_ch = &cur_node->ch[i];
-                                break;
-                            }
+                        long selected_ch_idx = std::max_element(uctValue.begin(), uctValue.end()) - uctValue.begin();
+
+                        selected_ch = &(cur_node->ch[selected_ch_idx]);
+
                         cur_node = selected_ch;
                         cur_board.place(selected_ch->block.action, cur_player);
                         cur_player = board::getOpponentPlayer(cur_player);
@@ -197,6 +188,9 @@ namespace uct
                 // TODO: Fix this with fastrollout
                 std::uniform_real_distribution<> dis(0.0, 1.0);
                 double cur_q = dis(gen);
+                cur_q *= cur_q * cur_q; // simulate sharp curve
+                if (cur_node->block.player != init_player)
+                    cur_q = -cur_q;
 
                 while(cur_node)
                 {

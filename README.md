@@ -20,3 +20,5 @@ target_link_libraries(your_prog fastrollout)
 ```
 
 Enable test with `libuct_build_tests`, default `OFF`.
+
+NEW: uctTest will dump a `uct_test.dot` now. Convert it to image by `dot -Ttiff -O uct_test.dot`!

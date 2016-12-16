@@ -102,5 +102,6 @@ TEST(UCTTest, TestUCT1)
     logger->set_level(spdlog::level::debug);
     board::Board<9, 9> b;
     uct::Tree<uct::detail::UCTTreePolicy<9, 9>> tree(b, board::Player::B);
-    tree.run(4, std::chrono::seconds(2));
+    tree.run(4, std::chrono::seconds(1));
+    tree.dumpToDotFile("uct_test1.dot");
 }

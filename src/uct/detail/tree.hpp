@@ -15,6 +15,9 @@
 #include <thread>
 #include <atomic>
 #include <cassert>
+#include <fstream>
+#include <string>
+#include <queue>
 #include <boost/pool/pool_alloc.hpp>
 
 namespace uct
@@ -107,6 +110,8 @@ namespace uct
             return policy.getResultIndex(root_.get());
         }
 
+        void dumpToDotFile(const std::string &filename);
+
     protected:
         void single_thread_runner(std::chrono::milliseconds time_limit_ms, TreeNodeType *root_node);
     };
@@ -159,6 +164,32 @@ namespace uct
                 t.join();
         });
         plogger_->debug("Tree & default_policy finished");
+    }
+
+    template<typename PolicyT>
+    void Tree<PolicyT>::dumpToDotFile(const std::string &filename)
+    {
+        std::ofstream of(filename);
+        assert(of.is_open());
+        of << "digraph G {" << std::endl;
+        of << R"conf(
+                ratio="auto";
+                 margin=0;
+                 nodesep=0.02;
+                 node[shape=point];
+                )conf";
+        std::queue<TreeNodeType *> q;
+        q.push(root_.get());
+        while (!q.empty())
+        {
+            TreeNodeType *cur_node = q.front();
+            q.pop();
+            for (auto &ch: cur_node->ch){
+                q.push(&ch);
+                of << "node" << cur_node << " -> " << "node" << &ch << ";" << std::endl;
+            }
+        }
+        of << "}" << std::endl;
     }
 }
 #endif //LIBUCT_TREE_HPP_HPP
