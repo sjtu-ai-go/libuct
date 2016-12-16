@@ -64,7 +64,7 @@ namespace uct
                 return (double) q.load() / Q_BASE;
             }
 
-            double addQ(double newQ)
+            void addQ(double newQ)
             {
                 int to_add = static_cast<int>(newQ * Q_BASE);
                 q.fetch_add(to_add);
@@ -211,6 +211,7 @@ namespace uct
             virtual std::size_t getFinalResultIndex(TreeNodeType *root) override
             {
                 // TODO
+                return 0;
             }
 
             virtual TreeNodeType getRoot() override
