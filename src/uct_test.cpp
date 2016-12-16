@@ -17,7 +17,7 @@ struct TreeNodeBlock1
 
     TreeNodeBlock1() = default;
     TreeNodeBlock1(const TreeNodeBlock1& other):
-            visit_cnt(visit_cnt.load()), default_policy_done(false)
+            visit_cnt(other.visit_cnt.load()), default_policy_done(false)
     {}
 };
 
