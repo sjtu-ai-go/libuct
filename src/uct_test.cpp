@@ -105,3 +105,13 @@ TEST(UCTTest, TestUCT1)
     tree.run(4, std::chrono::seconds(1));
     tree.dumpToDotFile("uct_test1.dot");
 }
+
+TEST(UCTTest, TestUCT2)
+{
+    auto logger = getGlobalLogger();
+    logger->set_level(spdlog::level::debug);
+    board::Board<19, 19> b;
+    uct::Tree<uct::detail::UCTTreePolicy<19, 19>> tree(b, board::Player::B);
+    tree.run(4, std::chrono::seconds(1));
+    tree.dumpToDotFile("uct_test2.dot");
+}
