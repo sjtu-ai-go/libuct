@@ -223,5 +223,8 @@ namespace uct
             }
         };
     }
+
+    template <std::size_t W, std::size_t H>
+    using UCTTree = Tree< detail::UCTTreePolicy<W, H> >;
 }
 #endif //LIBUCT_UCT_ALGO_HPP
