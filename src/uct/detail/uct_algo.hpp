@@ -16,6 +16,7 @@
 #include <numeric>
 #include <algorithm>
 #include <sstream>
+#include <fastrollout/fastrollout.hpp>
 
 namespace uct
 {
@@ -90,13 +91,14 @@ namespace uct
             std::atomic<int> global_visit_cnt {0};
             std::shared_ptr<spdlog::logger> logger = getGlobalLogger();
 
-            board::Board<W, H> init_board;
-            board::Player init_player;
+            const board::Board<W, H> init_board;
+            const board::Player init_player;
+            const double komi;
 
             std::mt19937 gen { std::random_device()() };
 
-            UCTTreePolicy(const board::Board<W, H> &b, board::Player player):
-                    init_board(b), init_player(player)
+            UCTTreePolicy(const board::Board<W, H> &b, board::Player player, double komi):
+                    init_board(b), init_player(player), komi(komi)
             {}
 
             static double uctVal(const TreeNodeType& node)
@@ -180,23 +182,21 @@ namespace uct
                     }
                 }
             }
+
+            fastrollout::RandomRolloutPolicy<W, H> rolloutEngine{3};
             virtual void default_policy(const TreePolicyResult &result) override
             {
                 TreeNodeType *cur_node = result.first;
-                const auto &board = result.second;
+                const auto &board = result.second.board;
 
-                // TODO: Fix this with fastrollout
-                std::uniform_real_distribution<> dis(0.0, 1.0);
-                double cur_q = dis(gen);
-                cur_q *= cur_q * cur_q; // simulate sharp curve
-                if (cur_node->block.player != init_player)
-                    cur_q = -cur_q;
+                double cur_q = rolloutEngine.run(board, komi, cur_node->block.player);
+                // cur_q: higher <-> white dominates
 
                 while(cur_node)
                 {
-                    cur_node->block.addQ(cur_q);
+                    // Next action is for Black <=> Previous action is for white <=> the higher the better
+                    cur_node->block.addQ(cur_node->block.player == board::Player::B ? cur_q : -cur_q);
                     cur_node->block.visit_cnt.fetch_add(1);
-                    cur_q = -cur_q;
                     cur_node = cur_node->parent;
                 }
 
@@ -204,8 +204,17 @@ namespace uct
             }
             virtual std::size_t getFinalResultIndex(TreeNodeType *root) override
             {
-                // TODO
-                return 0;
+                std::stringstream ss;
+                ss << "Root chs:";
+                std::for_each(root->ch.begin(), root->ch.end(), [&](TreeNodeType &tn) {
+                    ss << "[visit_cnt=" << tn.block.visit_cnt.load() << ", Q=" << tn.block.getQ() <<
+                       ", uct=" << uctVal(tn) << "], ";
+                });
+                logger->debug(ss.str());
+                return (std::size_t)
+                        (std::max_element(root->ch.cbegin(), root->ch.cend(), [](const TreeNodeType&n1, const TreeNodeType &n2) {
+                            return uctVal(n1) < uctVal(n2);
+                        }) - root->ch.cbegin());
             }
 
             virtual TreeNodeType getRoot() override

@@ -105,9 +105,9 @@ namespace uct
 
         void run(std::size_t thread_num, std::chrono::milliseconds time_limit_ms);
 
-        std::size_t getResultIndex()
+        TreeNodeType *getResultNode()
         {
-            return policy.getResultIndex(root_.get());
+            return &root_->ch[policy.getFinalResultIndex(root_.get())];
         }
 
         void dumpToDotFile(const std::string &filename);

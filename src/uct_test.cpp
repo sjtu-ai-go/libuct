@@ -101,7 +101,7 @@ TEST(UCTTest, TestUCT1)
     auto logger = getGlobalLogger();
     logger->set_level(spdlog::level::debug);
     board::Board<9, 9> b;
-    uct::Tree<uct::detail::UCTTreePolicy<9, 9>> tree(b, board::Player::B);
+    uct::Tree<uct::detail::UCTTreePolicy<9, 9>> tree(b, board::Player::B, 6.5);
     tree.run(4, std::chrono::seconds(1));
     tree.dumpToDotFile("uct_test1.dot");
 }
@@ -111,7 +111,9 @@ TEST(UCTTest, TestUCT2)
     auto logger = getGlobalLogger();
     logger->set_level(spdlog::level::debug);
     board::Board<19, 19> b;
-    uct::Tree<uct::detail::UCTTreePolicy<19, 19>> tree(b, board::Player::B);
+    uct::Tree<uct::detail::UCTTreePolicy<19, 19>> tree(b, board::Player::B, 6.5);
+    using TreeT = decltype(tree);
     tree.run(4, std::chrono::seconds(1));
+    typename TreeT::TreeNodeType *selected_node = tree.getResultNode();
     tree.dumpToDotFile("uct_test2.dot");
 }
