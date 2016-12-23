@@ -53,9 +53,11 @@ namespace uct
             UCTTreeNodeBlock(const UCTTreeNodeBlock& other):
                     visit_cnt(other.visit_cnt.load()), default_policy_done(other.default_policy_done.load()),
                     q(other.q.load()),
-                    action(other.action),
-                    pGoodPos(new GoodPositionType(*other.pGoodPos))
-            {}
+                    action(other.action)
+            {
+                if (other.pGoodPos)
+                    pGoodPos.reset(new GoodPositionType (*other.pGoodPos));
+            }
 
             explicit UCTTreeNodeBlock(board::Player player):
                     player(player)
