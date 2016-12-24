@@ -37,6 +37,8 @@ namespace uct
             // 2^32 / 4096 = 2^20, large enough for single traversal
         private:
             std::atomic_int_fast32_t q { 0 }; // Q in UCT, multiplied by Q_BASE
+            static const std::int16_t MAGIC_NUM = 0x38e5;
+            volatile const std::int16_t magic_num = MAGIC_NUM; // if magic_num is not ok, then we may read dirty data
         public:
             board::GridPoint<W, H> action; // the action from parent to this node
             std::mutex expand_mutex;
@@ -53,15 +55,26 @@ namespace uct
             UCTTreeNodeBlock(const UCTTreeNodeBlock& other):
                     visit_cnt(other.visit_cnt.load()), default_policy_done(other.default_policy_done.load()),
                     q(other.q.load()),
-                    action(other.action)
+                    action(other.action),
+                    player(other.player)
+
             {
                 if (other.pGoodPos)
                     pGoodPos.reset(new GoodPositionType (*other.pGoodPos));
             }
 
-            explicit UCTTreeNodeBlock(board::Player player):
-                    player(player)
+            explicit UCTTreeNodeBlock(board::Player player, board::GridPoint<W, H> action):
+                    player(player), action(action)
             {}
+
+            UCTTreeNodeBlock& operator= (const UCTTreeNodeBlock &other)
+            {
+                visit_cnt = other.visit_cnt.load();
+                default_policy_done.store(other.default_policy_done.load());
+                q = other.q.load();
+                action = other.action;
+                player = other.player;
+            }
 
             double getQ() const
             {
@@ -72,6 +85,11 @@ namespace uct
             {
                 int to_add = static_cast<int>(newQ * Q_BASE);
                 q.fetch_add(to_add);
+            }
+
+            bool isClean() const volatile
+            {
+                return magic_num == MAGIC_NUM;
             }
         };
 
@@ -89,6 +107,7 @@ namespace uct
             using TreeNodeType = typename BaseT::TreeNodeType;
             using TreeState = typename BaseT::TreeState;
             using TreePolicyResult = typename BaseT::TreePolicyResult;
+            using PointType = typename board::Board<W, H>::PointType;
             static const std::size_t CH_BUF_SIZE = BaseT::CH_BUF_SIZE;
             std::atomic<int> global_visit_cnt {0};
             std::shared_ptr<spdlog::logger> logger = getGlobalLogger();
@@ -140,8 +159,6 @@ namespace uct
                         std::lock_guard<std::mutex> lock(cur_node->block.expand_mutex);
                         if (cur_node->ch.size() < CH_BUF_SIZE)
                         {
-                            cur_node->ch.emplace_back(cur_node, board::getOpponentPlayer(cur_player));
-                            expand_node = &*cur_node->ch.rbegin();
                             // Only calculate goodPos at the first time
                             if (!cur_node->block.pGoodPos)
                                 cur_node->block.pGoodPos.reset(new typename decltype(cur_node->block)::GoodPositionType
@@ -151,8 +168,11 @@ namespace uct
                                 return std::make_pair(nullptr, TreeState {cur_board});
                             std::uniform_int_distribution<> dis(0, validPosVec.size() - 1);
                             std::size_t selected_index = dis(gen);
-                            expand_node->block.action = validPosVec[selected_index];
+                            PointType action = validPosVec[selected_index];
                             validPosVec.erase(validPosVec.begin() + selected_index);
+
+                            cur_node->ch.emplace_back(cur_node, board::getOpponentPlayer(cur_player), action);
+                            expand_node = &*cur_node->ch.rbegin();
                         }
                     }
 
@@ -181,7 +201,10 @@ namespace uct
                         selected_ch = &(cur_node->ch[selected_ch_idx]);
 
                         cur_node = selected_ch;
-                        cur_board.place(selected_ch->block.action, cur_player);
+                        if (cur_node->block.isClean()) {
+                            cur_board.place(selected_ch->block.action, cur_player);
+                        } else
+                            return std::make_pair(nullptr, TreeState {cur_board});
                         cur_player = board::getOpponentPlayer(cur_player);
                     }
                 }
@@ -223,7 +246,7 @@ namespace uct
 
             virtual TreeNodeType getRoot() override
             {
-                return TreeNodeType {nullptr, init_player};
+                return TreeNodeType {nullptr, init_player, PointType(0, 0)};
             }
         };
     }
