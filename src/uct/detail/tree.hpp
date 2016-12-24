@@ -107,7 +107,11 @@ namespace uct
 
         TreeNodeType *getResultNode()
         {
-            return &root_->ch[policy.getFinalResultIndex(root_.get())];
+            std::size_t resultIndex = policy.getFinalResultIndex(root_.get());
+            if (root_->ch.empty())
+                return nullptr;
+            else
+                return &root_->ch[policy.getFinalResultIndex(root_.get())];
         }
 
         void dumpToDotFile(const std::string &filename);
