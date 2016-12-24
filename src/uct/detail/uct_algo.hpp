@@ -176,7 +176,7 @@ namespace uct
                         }
                         long selected_ch_idx = std::max_element(uctValue.begin(), uctValue.end()) - uctValue.begin();
                         if (uctValue.empty())
-                            return std::make_pair(expand_node, TreeState {cur_board});
+                            return std::make_pair(nullptr, TreeState {cur_board});
 
                         selected_ch = &(cur_node->ch[selected_ch_idx]);
 
