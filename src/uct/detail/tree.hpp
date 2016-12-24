@@ -129,30 +129,34 @@ namespace uct
         plogger_->debug("[tid={}] New Tree thread created with CHECK_INTEVAL={}, root={}",
                         std::this_thread::get_id(), TIME_CHECK_CNT_INTEVAL, (void*)root_node);
 
-        std::size_t cnt_since_last_check = 0;
+        try {
+            std::size_t cnt_since_last_check = 0;
 
-        for (;;)
+            for (;;) {
+                ++cnt;
+                ++cnt_since_last_check;
+                if (cnt_since_last_check >= TIME_CHECK_CNT_INTEVAL) {
+                    auto cur_time = std::chrono::steady_clock::now();
+                    if (std::chrono::duration_cast<std::chrono::milliseconds>(cur_time - start_time) > time_limit_ms)
+                        break;
+                    cnt_since_last_check = 0;
+                }
+
+                std::pair<TreeNodeType *, TreeState> tree_policy_result = policy.tree_policy(root_.get());
+                if (tree_policy_result.first) {
+                    policy.default_policy(tree_policy_result);
+                }
+            }
+            auto cur_time = std::chrono::steady_clock::now();
+            plogger_->debug("[tid={}] Tree thread finished! cnt={} time_eclipsed: {}ms",
+                            std::this_thread::get_id(), cnt, std::chrono::duration_cast<std::chrono::milliseconds>(
+                            cur_time - start_time
+                    ).count());
+        } catch(const std::exception &e)
         {
-            ++cnt; ++cnt_since_last_check;
-            if (cnt_since_last_check >= TIME_CHECK_CNT_INTEVAL)
-            {
-                auto cur_time = std::chrono::steady_clock::now();
-                if (std::chrono::duration_cast<std::chrono::milliseconds>(cur_time - start_time) > time_limit_ms)
-                    break;
-                cnt_since_last_check = 0;
-            }
-
-            std::pair<TreeNodeType *, TreeState> tree_policy_result = policy.tree_policy(root_.get());
-            if (tree_policy_result.first)
-            {
-                policy.default_policy(tree_policy_result);
-            }
+            plogger_->critical("[tid={}] thrown an exception: {}", std::this_thread::get_id(), e.what());
+            throw e;
         }
-        auto cur_time = std::chrono::steady_clock::now();
-        plogger_->debug("[tid={}] Tree thread finished! cnt={} time_eclipsed: {}ms",
-            std::this_thread::get_id(), cnt, std::chrono::duration_cast<std::chrono::milliseconds>(
-                        cur_time - start_time
-                ).count());
     }
 
     template<typename PolicyT>
