@@ -76,5 +76,5 @@ if (libuct_build_tests)
     ###############################
     add_executable(cnn-v1-test src/cnn_v1_test.cpp)
     target_link_libraries(cnn-v1-test uct gtest gtest_main)
-    add_test(cnn_test cnn-test)
+    add_test(cnn_test cnn-v1-test)
 endif()
