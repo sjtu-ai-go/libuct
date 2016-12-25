@@ -11,6 +11,12 @@ set(CMAKE_CXX_STANDARD 11)
 ################################
 find_package(Threads REQUIRED)
 
+################################
+# Find boost
+################################
+find_package(Boost 1.46 REQUIRED COMPONENTS system)
+include_directories(${Boost_INCLUDE_DIRS})
+
 ##################################
 # libgoboard
 ##################################
@@ -45,8 +51,8 @@ endif()
 # uct
 ##################################
 include_directories(src/)
-add_library(uct STATIC src/uct/uct.cpp src/uct/detail/tree.hpp src/uct/uct.hpp src/uct/detail/uct_algo.hpp)
-target_link_libraries(uct ${libgo_LIBS} ${libgoboard_LIBS} ${libfastrollout_LIBS})
+add_library(uct STATIC src/uct/uct.cpp src/uct/detail/tree.hpp src/uct/uct.hpp src/uct/detail/uct_algo.hpp src/uct/detail/cnn_v1.hpp)
+target_link_libraries(uct ${libgo_LIBS} ${libgoboard_LIBS} ${libfastrollout_LIBS} ${Boost_SYSTEM_LIBRARY} ${CMAKE_THREAD_LIBS_INIT})
 set(libuct_INCLUDE_DIR ${libgoboard_INCLUDE_DIR} ${libgo-common_INCLUDE_DIR} ${libfastrollout_INCLUDE_DIR} ${libuct_SOURCE_DIR}/src PARENT_SCOPE)
 
 #################################
@@ -65,4 +71,10 @@ if (libuct_build_tests)
     add_executable(uct-test src/uct_test.cpp)
     target_link_libraries(uct-test uct gtest gtest_main)
     add_test(uct_test uct-test)
+    ###############################
+    # cnn-test
+    ###############################
+    add_executable(cnn-v1-test src/cnn_v1_test.cpp)
+    target_link_libraries(cnn-v1-test uct gtest gtest_main)
+    add_test(cnn_test cnn-test)
 endif()
