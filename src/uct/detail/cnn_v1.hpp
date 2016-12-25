@@ -22,10 +22,6 @@ namespace uct
         protected:
             io_service service;
             ip::tcp::endpoint ep;
-        public:
-            CNNServiceBase(const std::string &addr, unsigned short port):
-                    ep(ip::address::from_string(addr), port)
-            {}
 
             static void config_socket(ip::tcp::socket &sock)
             {
@@ -34,6 +30,10 @@ namespace uct
                 sock.set_option(ra);
                 sock.set_option(nd);
             }
+        public:
+            CNNServiceBase(const std::string &addr, unsigned short port):
+                    ep(ip::address::from_string(addr), port)
+            {}
 
             std::string sync_call(const std::string &message)
             {
@@ -53,6 +53,38 @@ namespace uct
                 std::string result_s;
                 std::copy(result.cbegin(), result.cend(), std::back_inserter(result_s));
                 return result_s;
+            }
+        };
+
+        class RequestV1Service: protected CNNServiceBase
+        {
+        public:
+            RequestV1Service(const std::string &addr, unsigned short port):
+                    CNNServiceBase(addr, port)
+            {}
+
+            gocnn::ResponseV1 sync_call(const gocnn::RequestV1 &reqV1)
+            {
+                std::string resp = CNNServiceBase::sync_call(reqV1.SerializeAsString());
+                gocnn::ResponseV1 respV1;
+                respV1.ParseFromString(resp);
+                return respV1;
+            }
+        };
+
+        class RequestV2Service: protected CNNServiceBase
+        {
+        public:
+            RequestV2Service(const std::string &addr, unsigned short port):
+                    CNNServiceBase(addr, port)
+            {}
+
+            gocnn::ResponseV2 sync_call(const gocnn::RequestV2 &reqV2)
+            {
+                std::string resp = CNNServiceBase::sync_call(reqV2.SerializeAsString());
+                gocnn::ResponseV2 respV2;
+                respV2.ParseFromString(resp);
+                return respV2;
             }
         };
     }

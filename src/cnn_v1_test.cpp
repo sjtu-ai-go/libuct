@@ -59,3 +59,10 @@ TEST(CNNBaseTest, TestCNNBaseConstruct)
     if (t.joinable())
         t.join();
 }
+
+TEST(CNNBaseTest, DISABLED_TestCNNBaseRemote)
+{
+    uct::detail::CNNServiceBase cnnbase("127.0.0.1", 7590);
+    std::string answer = cnnbase.sync_call("test");
+    EXPECT_EQ("helloworld", answer);
+}
