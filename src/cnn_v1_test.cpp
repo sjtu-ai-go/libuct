@@ -3,6 +3,7 @@
 //
 
 #include "uct/detail/cnn_v1.hpp"
+#include <board.hpp>
 #include <gtest/gtest.h>
 #include <boost/asio.hpp>
 #include <string>
@@ -27,7 +28,7 @@ public:
     {
     }
 
-    int run()
+    void run()
     {
         ip::tcp::socket sock(service);
         acceptor.accept(sock);
@@ -42,7 +43,36 @@ public:
         sock.write_some(buffer(&reply_size, 8));
         sock.write_some(buffer(reply, reply_size));
         sock.close();
-        return 0;
+    }
+};
+
+class V1Stub: protected Stub
+{
+public:
+    gocnn::RequestV1 echo;
+    V1Stub(unsigned short port, gocnn::ResponseV1 resp):
+            Stub(port, resp.SerializeAsString())
+    {}
+
+    void run()
+    {
+        Stub::run();
+        echo.ParseFromString(Stub::echo);
+    }
+};
+
+class V2Stub: protected Stub
+{
+public:
+    gocnn::RequestV2 echo;
+    V2Stub(unsigned short port, gocnn::ResponseV2 resp):
+            Stub(port, resp.SerializeAsString())
+    {}
+
+    void run()
+    {
+        Stub::run();
+        echo.ParseFromString(Stub::echo);
     }
 };
 
@@ -60,9 +90,96 @@ TEST(CNNBaseTest, TestCNNBaseConstruct)
         t.join();
 }
 
-TEST(CNNBaseTest, DISABLED_TestCNNBaseRemote)
+TEST(ReqV1Test, TestReqV1Connect)
 {
-    uct::detail::CNNServiceBase cnnbase("127.0.0.1", 7590);
-    std::string answer = cnnbase.sync_call("test");
-    EXPECT_EQ("helloworld", answer);
+    uct::detail::RequestV1Service reqV1Service("127.0.0.1", 7593);
+    gocnn::ResponseV1 resp;
+    resp.set_board_size(361);
+    for (int i=0; i<resp.board_size(); ++i)
+        resp.add_possibility(0.5);
+
+    gocnn::RequestV1 reqV1;
+    reqV1.set_board_size(361);
+
+    V1Stub stub(7593, resp);
+
+    std::thread t {&V1Stub::run, &stub};
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    gocnn::ResponseV1 gotResp = reqV1Service.sync_call(reqV1);
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+
+    EXPECT_EQ(361, gotResp.board_size());
+    EXPECT_EQ(361, gotResp.possibility_size());
+    EXPECT_EQ(0.5, gotResp.possibility(150));
+
+    EXPECT_EQ(361, stub.echo.board_size());
+    EXPECT_EQ(0, stub.echo.our_group_lib1_size());
+    if (t.joinable())
+        t.join();
+
+}
+
+TEST(ReqV2Test, TestReqV2Connect)
+{
+    uct::detail::RequestV2Service reqV2Service("127.0.0.1", 7592);
+    gocnn::ResponseV2 resp;
+    resp.set_board_size(361);
+    for (int i=0; i<resp.board_size(); ++i)
+        resp.add_possibility(0.5);
+
+    gocnn::RequestV2 reqV2;
+    reqV2.set_board_size(361);
+
+    V2Stub stub(7592, resp);
+
+    std::thread t {&V2Stub::run, &stub};
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    gocnn::ResponseV2 gotResp = reqV2Service.sync_call(reqV2);
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+
+    EXPECT_EQ(361, gotResp.board_size());
+    EXPECT_EQ(361, gotResp.possibility_size());
+    EXPECT_EQ(0.5, gotResp.possibility(150));
+
+    EXPECT_EQ(361, stub.echo.board_size());
+    EXPECT_EQ(0, stub.echo.capture_size_five_size());
+    if (t.joinable())
+        t.join();
+
+}
+
+TEST(CNNBaseTest, DISABLED_TestReqV1Remote)
+{
+    uct::detail::RequestV1Service reqV1Service("127.0.0.1", 7591);
+    board::Board<19, 19> b;
+    auto reqV1 = b.generateRequestV1(board::Player::B);
+
+    spdlog::set_level(spdlog::level::trace);
+    gocnn::ResponseV1 respV1 = reqV1Service.sync_call(reqV1);
+    std::cout << respV1.board_size() << std::endl;
+    for (float i : respV1.possibility())
+        std::cout << i << " " << std::endl;
+    // todo
+    EXPECT_TRUE(true);
+}
+
+TEST(CNNBaseTest, DISABLED_TestReqV1RemoteConcurent)
+{
+    std::vector<std::thread> ts;
+    for (int i=0; i<32; ++i)
+        ts.emplace_back([&]() {
+
+            board::Board<19, 19> b;
+            uct::detail::RequestV1Service reqV1Service("127.0.0.1", 7591);
+            auto reqV1 = b.generateRequestV1(board::Player::W);
+
+            spdlog::set_level(spdlog::level::trace);
+            gocnn::ResponseV1 respV1 = reqV1Service.sync_call(reqV1);
+        });
+    // todo
+    std::for_each(ts.begin(), ts.end(), [](std::thread &t) {
+        if (t.joinable())
+            t.join();
+    });
+    EXPECT_TRUE(true);
 }

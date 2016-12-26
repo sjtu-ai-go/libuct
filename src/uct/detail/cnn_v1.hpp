@@ -6,6 +6,7 @@
 #define LIBUCT_CNN_V1_HPP
 
 #include "message.pb.h"
+#include "logger.hpp"
 #include <boost/asio.hpp>
 #include <string>
 #include <cstdint>
@@ -20,6 +21,7 @@ namespace uct
         class CNNServiceBase
         {
         protected:
+            std::shared_ptr<spdlog::logger> logger = {getGlobalLogger()};
             io_service service;
             ip::tcp::endpoint ep;
 
@@ -37,17 +39,23 @@ namespace uct
 
             std::string sync_call(const std::string &message)
             {
+                logger->trace("Start a RPC");
                 ip::tcp::socket sock(service);
                 sock.connect(ep);
                 config_socket(sock);
 
                 std::int64_t len = message.size();
+
+                logger->trace("Start writing len");
                 sock.write_some(buffer(&len, 8));
+                logger->trace("Start writing msg");
                 sock.write_some(buffer(message));
 
                 std::int64_t resp_len = 0;
+                logger->trace("Start reading resp len");
                 sock.read_some(buffer(&resp_len, 8));
                 std::vector<char> result(resp_len);
+                logger->trace("Start read msg with len {}", resp_len);
                 sock.read_some(buffer(result, resp_len));
                 sock.close();
                 std::string result_s;
