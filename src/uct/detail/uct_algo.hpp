@@ -152,11 +152,17 @@ namespace uct
                    return a.second > b.second;
                 }); // vp: possibility large -> small
 
+                auto goodPosVec = b.getAllGoodPosition(player);
+                const double ACCUM_THRES = b.getStep() > 100 ? (b.getStep() > 200 ? 0.95 : 0.9): 0.8;
                 double accum = 0.0;
                 auto it = vp.begin();
-                for (; it != vp.end() && accum < 0.8; ++it)
+                int cnt = 0;
+                for (; it != vp.end() && (accum < ACCUM_THRES || cnt < 2); ++it)
                 {
-                    accum += it->second;
+                    if (std::find(goodPosVec.begin(), goodPosVec.end(), it->first) != goodPosVec.end()) {
+                        accum += it->second;
+                        ++cnt;
+                    }
                 }
                 vp.erase(it, vp.end());
 
