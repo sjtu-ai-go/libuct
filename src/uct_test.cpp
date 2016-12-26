@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <chrono>
 #include <boost/pool/pool.hpp>
+#include <boost/asio.hpp>
 
 struct TreeNodeBlock1
 {
@@ -106,12 +107,71 @@ TEST(UCTTest, DISABLED_TestUCT9x9) // Disabled due to lack of 9x9 CNN Server
     tree.dumpToDotFile("uct_test1.dot");
 }
 
+using namespace boost::asio;
+class Stub
+{
+    io_service service;
+    ip::tcp::acceptor acceptor;
+
+    const std::string reply;
+public:
+    std::string echo;
+    Stub(unsigned short port, std::string reply):
+            acceptor(service, ip::tcp::endpoint(ip::address::from_string("127.0.0.1"), port)),
+            reply(reply)
+    {
+    }
+
+    void run()
+    {
+        ip::tcp::socket sock(service);
+        acceptor.accept(sock);
+        std::int64_t len;
+
+        sock.read_some(buffer(&len, 8));
+        std::vector<char> buf(len);
+        sock.read_some(buffer(buf));
+        echo.clear();
+        std::copy(buf.cbegin(), buf.cend(), std::back_inserter(echo));
+        std::int64_t reply_size = reply.size();
+        sock.write_some(buffer(&reply_size, 8));
+        sock.write_some(buffer(reply, reply_size));
+        sock.close();
+    }
+};
+
+class V1Stub: protected Stub
+{
+public:
+    gocnn::RequestV1 echo;
+    V1Stub(unsigned short port, gocnn::ResponseV1 resp):
+            Stub(port, resp.SerializeAsString())
+    {}
+
+    void run()
+    {
+        Stub::run();
+        echo.ParseFromString(Stub::echo);
+    }
+};
+
 TEST(UCTTest, TestUCT2)
 {
+    gocnn::ResponseV1 resp;
+    resp.set_board_size(361);
+    resp.mutable_possibility()->Resize(361, 1.0 / 361);
+    V1Stub stub(7814, resp);
+    std::thread stub_thread([&]() {
+        for (;;)
+            stub.run();
+    });
+
+    stub_thread.detach();
+
     auto logger = getGlobalLogger();
     logger->set_level(spdlog::level::debug);
     board::Board<19, 19> b;
-    uct::Tree<uct::detail::UCTTreePolicy<19, 19>> tree(b, board::Player::B, 6.5, "127.0.0.1", 7591);
+    uct::Tree<uct::detail::UCTTreePolicy<19, 19>> tree(b, board::Player::B, 6.5, "127.0.0.1", 7814);
     using TreeT = decltype(tree);
     tree.run(2, std::chrono::seconds(5));
     typename TreeT::TreeNodeType *selected_node = tree.getResultNode();
