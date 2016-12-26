@@ -166,6 +166,7 @@ TEST(CNNBaseTest, DISABLED_TestReqV1Remote)
 TEST(CNNBaseTest, DISABLED_TestReqV1RemoteConcurent)
 {
     std::vector<std::thread> ts;
+    spdlog::set_level(spdlog::level::trace);
     for (int i=0; i<32; ++i)
         ts.emplace_back([&]() {
 

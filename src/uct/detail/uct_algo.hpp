@@ -8,6 +8,7 @@
 #include "tree.hpp"
 #include <board.hpp>
 #include "logger.hpp"
+#include "cnn_v1.hpp"
 #include <cstddef>
 #include <memory>
 #include <mutex>
@@ -118,8 +119,9 @@ namespace uct
 
             std::mt19937 gen { std::random_device()() };
 
-            UCTTreePolicy(const board::Board<W, H> &b, board::Player player, double komi):
-                    init_board(b), init_player(player), komi(komi)
+            UCTTreePolicy(const board::Board<W, H> &b, board::Player player, double komi, const std::string addr,
+            unsigned short port):
+                    init_board(b), init_player(player), komi(komi), reqv1Service(addr, port)
             {}
 
             static double uctVal(const TreeNodeType& node)
@@ -132,6 +134,38 @@ namespace uct
                                2.0
                        ) :
                        -1.0;
+            }
+
+            detail::RequestV1Service reqv1Service;
+            auto getCNNGoodPositions(board::Board<W, H> &b, board::Player player) ->
+            typename UCTTreeNodeBlock<W, H>::GoodPositionType
+            {
+                auto requestV1 = b.generateRequestV1(player);
+                auto resp = reqv1Service.sync_call(requestV1);
+                auto &possibility = *resp.mutable_possibility();
+                using PairT = std::pair<PointType, double>;
+                std::vector<PairT> vp;
+                vp.reserve(W * H);
+                for (std::size_t i=0; i<possibility.size(); ++i)
+                    vp.emplace_back(PointType(i / H, i % H), possibility.data()[i]);
+                std::sort(vp.begin(), vp.end(), [](const PairT &a, const PairT &b) {
+                   return a.second > b.second;
+                }); // vp: possibility large -> small
+
+                double accum = 0.0;
+                auto it = vp.begin();
+                for (; it != vp.end() && accum < 0.8; ++it)
+                {
+                    accum += it->second;
+                }
+                vp.erase(it, vp.end());
+
+                std::vector<PointType> ans; ans.reserve(W * H);
+                std::for_each(vp.rbegin(), vp.rend(), [&](const PairT &p) {
+                    if (b.getPosStatus(p.first, player) == board::Board<W, H>::PositionStatus::OK)
+                        ans.push_back(p.first);
+                }); // ans: small to large
+                return ans;
             }
 
             virtual TreePolicyResult tree_policy(TreeNodeType *root) override
@@ -157,19 +191,24 @@ namespace uct
                     {
                         // double checking
                         std::lock_guard<std::mutex> lock(cur_node->block.expand_mutex);
-                        if (cur_node->ch.size() < CH_BUF_SIZE)
+                        if (cur_node->ch.size() < CH_BUF_SIZE &&
+                            (!cur_node->block.pGoodPos ||
+                             cur_node->ch.size() < cur_node->block.pGoodPos->size()
+                            )
+                                )
                         {
                             // Only calculate goodPos at the first time
                             if (!cur_node->block.pGoodPos)
                                 cur_node->block.pGoodPos.reset(new typename decltype(cur_node->block)::GoodPositionType
-                                    (cur_board.getAllGoodPosition(cur_player)));
+                                    (getCNNGoodPositions(cur_board, cur_player)));
+                            logger->trace("Generate finished");
                             auto &validPosVec = *cur_node->block.pGoodPos;
                             if (validPosVec.empty())
                                 return std::make_pair(nullptr, TreeState {cur_board});
-                            std::uniform_int_distribution<> dis(0, validPosVec.size() - 1);
-                            std::size_t selected_index = dis(gen);
+
+                            std::size_t selected_index = validPosVec.size() - 1;
                             PointType action = validPosVec[selected_index];
-                            validPosVec.erase(validPosVec.begin() + selected_index);
+                            validPosVec.pop_back(); // the last one: best
 
                             cur_node->ch.emplace_back(cur_node, board::getOpponentPlayer(cur_player), action);
                             expand_node = &*cur_node->ch.rbegin();

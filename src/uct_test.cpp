@@ -96,12 +96,12 @@ TEST(TreeTest, TestTree1)
     tree.run(4, std::chrono::seconds(2));
 }
 
-TEST(UCTTest, TestUCT1)
+TEST(UCTTest, DISABLED_TestUCT9x9) // Disabled due to lack of 9x9 CNN Server
 {
     auto logger = getGlobalLogger();
     logger->set_level(spdlog::level::debug);
     board::Board<9, 9> b;
-    uct::Tree<uct::detail::UCTTreePolicy<9, 9>> tree(b, board::Player::B, 6.5);
+    uct::Tree<uct::detail::UCTTreePolicy<9, 9>> tree(b, board::Player::B, 6.5, "127.0.0.1", 7591);
     tree.run(4, std::chrono::seconds(1));
     tree.dumpToDotFile("uct_test1.dot");
 }
@@ -111,9 +111,9 @@ TEST(UCTTest, TestUCT2)
     auto logger = getGlobalLogger();
     logger->set_level(spdlog::level::debug);
     board::Board<19, 19> b;
-    uct::Tree<uct::detail::UCTTreePolicy<19, 19>> tree(b, board::Player::B, 6.5);
+    uct::Tree<uct::detail::UCTTreePolicy<19, 19>> tree(b, board::Player::B, 6.5, "127.0.0.1", 7591);
     using TreeT = decltype(tree);
-    tree.run(4, std::chrono::seconds(1));
+    tree.run(2, std::chrono::seconds(5));
     typename TreeT::TreeNodeType *selected_node = tree.getResultNode();
     tree.dumpToDotFile("uct_test2.dot");
 }
