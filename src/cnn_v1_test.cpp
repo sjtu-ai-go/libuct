@@ -148,7 +148,7 @@ TEST(ReqV2Test, TestReqV2Connect)
 
 }
 
-TEST(CNNBaseTest, DISABLED_TestReqV1Remote)
+TEST(ReqV1Test, DISABLED_TestReqV1Remote)
 {
     uct::detail::RequestV1Service reqV1Service("127.0.0.1", 7591);
     board::Board<19, 19> b;
@@ -160,6 +160,18 @@ TEST(CNNBaseTest, DISABLED_TestReqV1Remote)
     for (float i : respV1.possibility())
         std::cout << i << " " << std::endl;
     // todo
+    EXPECT_TRUE(true);
+}
+
+TEST(ReqV2Test, DISABLED_TestReqV2Remote)
+{
+    uct::detail::RequestV2Service reqV2Service("127.0.0.1", 7591);
+    board::Board<19, 19> b;
+    auto reqV2 = b.generateRequestV2(board::Player::B);
+
+    gocnn::ResponseV2 respV2 = reqV2Service.sync_call(reqV2);
+    for (float i : respV2.possibility())
+        std::cout << i << " " << std::endl;
     EXPECT_TRUE(true);
 }
 

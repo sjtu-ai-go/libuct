@@ -155,12 +155,27 @@ public:
     }
 };
 
+class V2Stub: protected Stub
+{
+public:
+    gocnn::RequestV2 echo;
+    V2Stub(unsigned short port, gocnn::ResponseV2 resp):
+            Stub(port, resp.SerializeAsString())
+    {}
+
+    void run()
+    {
+        Stub::run();
+        echo.ParseFromString(Stub::echo);
+    }
+};
+
 TEST(UCTTest, TestUCT2)
 {
-    gocnn::ResponseV1 resp;
+    gocnn::ResponseV2 resp;
     resp.set_board_size(361);
     resp.mutable_possibility()->Resize(361, 1.0 / 361);
-    V1Stub stub(7814, resp);
+    V2Stub stub(7814, resp);
     std::thread stub_thread([&]() {
         for (;;)
             stub.run();
