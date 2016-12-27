@@ -128,7 +128,7 @@ namespace uct
             {
                 return node.block.default_policy_done ?
                        node.block.getQ() / node.block.visit_cnt.load() +
-                       0.707 * std::sqrt(
+                       0.5 * std::sqrt(
                                node.parent ?
                                2 * std::log(node.parent->block.visit_cnt.load()) / node.block.visit_cnt.load() :
                                2.0
@@ -153,7 +153,7 @@ namespace uct
                 }); // vp: possibility large -> small
 
                 auto goodPosVec = b.getAllGoodPosition(player);
-                const double ACCUM_THRES = b.getStep() > 100 ? (b.getStep() > 200 ? 0.95 : 0.9): 0.8;
+                const double ACCUM_THRES = b.getStep() > 100 ? (b.getStep() > 200 ? 0.95 : 0.87): 0.8;
                 double accum = 0.0;
                 auto it = vp.begin();
                 int cnt = 0;
@@ -285,7 +285,7 @@ namespace uct
                 logger->debug(ss.str());
                 return (std::size_t)
                         (std::max_element(root->ch.cbegin(), root->ch.cend(), [](const TreeNodeType&n1, const TreeNodeType &n2) {
-                            return uctVal(n1) < uctVal(n2);
+                            return n1.block.visit_cnt.load() < n2.block.visit_cnt.load();
                         }) - root->ch.cbegin());
             }
 
