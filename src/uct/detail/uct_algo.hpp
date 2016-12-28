@@ -141,7 +141,7 @@ namespace uct
             auto getCNNGoodPositions(board::Board<W, H> &b, board::Player player) ->
             typename UCTTreeNodeBlock<W, H>::GoodPositionType
             {
-                auto requestV2 = b.generateRequestV2Bug(player);
+                auto requestV2 = b.generateRequestV2(player);
                 auto resp = reqv2ServiceCompact.sync_call(requestV2);
                 auto &possibility = *resp.mutable_possibility();
                 using PairT = std::pair<PointType, double>;
