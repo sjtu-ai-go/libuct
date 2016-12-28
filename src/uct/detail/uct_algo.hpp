@@ -33,6 +33,7 @@ namespace uct
         struct UCTTreeNodeBlock
         {
             std::atomic<int> visit_cnt {0};
+            std::atomic<int> try_before_cnn {0};
 
             static const std::size_t Q_BASE = 4096; // if it's too small, we may lose precision; too large: overflow;
             // 2^32 / 4096 = 2^20, large enough for single traversal
@@ -175,6 +176,8 @@ namespace uct
                 return ans;
             }
 
+            static const int TRY_BEFORE_CNN_THRESHOLD = 32;
+
             virtual TreePolicyResult tree_policy(TreeNodeType *root) override
             {
                 TreeNodeType *cur_node = root;
@@ -204,10 +207,14 @@ namespace uct
                             )
                                 )
                         {
+                            cur_node->block.try_before_cnn.fetch_add(1);
                             // Only calculate goodPos at the first time
                             if (!cur_node->block.pGoodPos)
-                                cur_node->block.pGoodPos.reset(new typename decltype(cur_node->block)::GoodPositionType
+                                if (cur_node->block.try_before_cnn.load() > TRY_BEFORE_CNN_THRESHOLD)
+                                    cur_node->block.pGoodPos.reset(new typename decltype(cur_node->block)::GoodPositionType
                                     (getCNNGoodPositions(cur_board, cur_player)));
+                            else
+                                return std::make_pair(nullptr, TreeState {cur_board});
                             logger->trace("Generate finished");
                             auto &validPosVec = *cur_node->block.pGoodPos;
                             if (validPosVec.empty())
