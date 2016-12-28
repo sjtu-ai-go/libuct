@@ -168,7 +168,8 @@ namespace uct
 
                 std::vector<PointType> ans; ans.reserve(W * H);
                 std::for_each(vp.rbegin(), vp.rend(), [&](const PairT &p) {
-                    if (b.getPosStatus(p.first, player) == board::Board<W, H>::PositionStatus::OK)
+                    if (b.getPosStatus(p.first, player) == board::Board<W, H>::PositionStatus::OK &&
+                            std::find(goodPosVec.cbegin(), goodPosVec.cend(), p.first) != goodPosVec.cend())
                         ans.push_back(p.first);
                 }); // ans: small to large
                 return ans;
