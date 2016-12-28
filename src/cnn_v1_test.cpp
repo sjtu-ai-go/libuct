@@ -163,15 +163,27 @@ TEST(ReqV1Test, DISABLED_TestReqV1Remote)
     EXPECT_TRUE(true);
 }
 
+template<typename T>
+void print19x19(const T& val)
+{
+    int cnt = 0;
+    for (float i: val)
+    {
+        ++cnt;
+        std::cout << i << ' ';
+        if (!(cnt % 19))
+            std::cout << std::endl;
+    }
+}
+
 TEST(ReqV2Test, DISABLED_TestReqV2Remote)
 {
-    uct::detail::RequestV2Service reqV2Service("127.0.0.1", 7591);
+    uct::detail::RequestV2ServiceCompact reqV2Service("127.0.0.1", 7591);
     board::Board<19, 19> b;
     auto reqV2 = b.generateRequestV2(board::Player::B);
 
     gocnn::ResponseV2 respV2 = reqV2Service.sync_call(reqV2);
-    for (float i : respV2.possibility())
-        std::cout << i << " " << std::endl;
+    print19x19(respV2.possibility());
     EXPECT_TRUE(true);
 }
 
