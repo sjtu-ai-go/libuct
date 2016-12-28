@@ -170,7 +170,8 @@ public:
     }
 };
 
-TEST(UCTTest, TestUCT2)
+// disabled due to our new compact format
+TEST(UCTTest, DISABLED_TestUCT2)
 {
     gocnn::ResponseV2 resp;
     resp.set_board_size(361);
@@ -191,4 +192,13 @@ TEST(UCTTest, TestUCT2)
     tree.run(2, std::chrono::seconds(5));
     typename TreeT::TreeNodeType *selected_node = tree.getResultNode();
     tree.dumpToDotFile("uct_test2.dot");
+}
+
+TEST(UCTTest, DISABLED_TestRemoteUCT)
+{
+    board::Board<19, 19> b;
+    uct::Tree<uct::detail::UCTTreePolicy<19, 19>> tree(b, board::Player::B, 6.5, "127.0.0.1", 7591);
+    using TreeT = decltype(tree);
+    tree.run(4, std::chrono::seconds(10));
+    typename TreeT::TreeNodeType *selected_node = tree.getResultNode();
 }

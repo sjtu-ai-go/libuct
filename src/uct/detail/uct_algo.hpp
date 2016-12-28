@@ -121,7 +121,7 @@ namespace uct
 
             UCTTreePolicy(const board::Board<W, H> &b, board::Player player, double komi, const std::string addr,
             unsigned short port):
-                    init_board(b), init_player(player), komi(komi), reqv2Service(addr, port)
+                    init_board(b), init_player(player), komi(komi), reqv2ServiceCompact(addr, port)
             {}
 
             static double uctVal(const TreeNodeType& node)
@@ -136,12 +136,12 @@ namespace uct
                        -1.0;
             }
 
-            detail::RequestV2Service reqv2Service;
+            detail::RequestV2ServiceCompact reqv2ServiceCompact;
             auto getCNNGoodPositions(board::Board<W, H> &b, board::Player player) ->
             typename UCTTreeNodeBlock<W, H>::GoodPositionType
             {
                 auto requestV2 = b.generateRequestV2(player);
-                auto resp = reqv2Service.sync_call(requestV2);
+                auto resp = reqv2ServiceCompact.sync_call(requestV2);
                 auto &possibility = *resp.mutable_possibility();
                 using PairT = std::pair<PointType, double>;
                 std::vector<PairT> vp;
